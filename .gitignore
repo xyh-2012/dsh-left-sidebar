@@ -1,0 +1,6 @@
+node_modules/
+.superpowers/
+verify/*.out
+verify/*.err
+*.log
+scratch/

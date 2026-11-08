@@ -1,0 +1,20 @@
+{
+  "name": "dsh-left-sidebar",
+  "version": "0.1.0",
+  "description": "DSH 左侧边栏增强：插件图标 5 列网格 + 工作区三层树默认折叠",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.js", "client.js", "cordis.patch.yml", "README.md", "CHANGELOG.md"],
+  "keywords": ["dsh", "dsh-plugin", "sidebar", "workspace"],
+  "license": "MIT",
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "immediately": true },
+    "compatibility": { "dsh": ">=0.2.1-rc.2 <0.3.0", "node": ">=20.18", "profiles": ["web"] }
+  }
+}
