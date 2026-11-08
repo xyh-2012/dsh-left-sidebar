@@ -12,6 +12,11 @@
   "files": ["index.js", "client.js", "cordis.patch.yml", "README.md", "CHANGELOG.md"],
   "keywords": ["dsh", "dsh-plugin", "sidebar", "workspace"],
   "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/"
+  },
+  "devDependencies": { "esbuild": "^0.26.0" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": { "platform": "web", "immediately": true },
