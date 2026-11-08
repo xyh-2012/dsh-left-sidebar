@@ -1,2 +1,0 @@
-[dsh-notify-say] 未能在 DSH home 侧解析 @deepseek-ai/schemastery，跳过 Config schema（插件功能不受影响）
-error: too many arguments. Expected 0 arguments but got 1: web.

@@ -9,9 +9,12 @@
     "./client": "./client.js",
     "./package.json": "./package.json"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "README.md", "CHANGELOG.md"],
+  "files": ["index.js", "client.js", "cordis.patch.yml", "README.md", "CHANGELOG.md", "LICENSE"],
   "keywords": ["dsh", "dsh-plugin", "sidebar", "workspace"],
   "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/xyh-2012/dsh-left-sidebar.git" },
+  "homepage": "https://github.com/xyh-2012/dsh-left-sidebar#readme",
+  "bugs": { "url": "https://github.com/xyh-2012/dsh-left-sidebar/issues" },
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test test/"
