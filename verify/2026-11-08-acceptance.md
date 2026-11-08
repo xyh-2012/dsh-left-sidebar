@@ -39,6 +39,19 @@
 - **`localStorage` 键名带版本号**（`dsh.workspace.view.v5`）。DSH 升到 v6 时读不到，播种会降级为「不写折叠」；需要同步改 `src/view.js` 的常量。
 - **第二层只认已注册工作区**：`owningParentFolder` 大小写敏感，跳过未注册的中间目录（深度被压缩，但不会塌成两层）。
 
+## 终态复跑（提交 `e813253` 之后，干净状态）
+
+把 `localStorage["dsh.workspace.view.v5"]` 重置为 `{groupBy:"workspace",groupExpansion:{},orderBy:"updated",sessionOrderByAccount:{},archivedFilter:"default"}`、删掉 `dsh-left-sidebar.seeded`，然后 reload：
+
+- `groupBy:"workspace-tree"`、`seeded:"1"`、`groupExpansion` 7 个键全部 `false`；
+- 侧边栏（需先点开，因为刷新后回到 rail 态）展开到 280px 后，可见行 **4 个项目行 + 0 个会话行**，全部 `aria-expanded:"false"`；
+- 面板列表 `display:"grid"`、`gridTemplateColumns:49.5938px ×5`、`navWidth:264`、`navHeight:72`、`childCount:8`；
+- 8 格全部 `50×34`，`left` 依次 8/62/115/169/222/8/62/115，两行 `top` 144 与 182；
+- 第 8 格 `tag:"SPAN"`（label「更多」），其 `::after` 也正常（`content:"更多"`、`display:block`、`left:24.7969px`）；
+- 首列格 `::after { left:"0px" }`、末列格 `::after { right:"0px" }` —— 气泡不出界。
+
+→ V1/V2/V3/V5/V6 在最终代码上再次通过。拖拽排序测完后已把 `global.workspaceIds` 恢复成原始顺序（`dsh → 知识学习 → dida-task-local → default-workspace → dsh_workdir → plugins`）。
+
 ## 复现方式
 
 ```powershell
