@@ -1,0 +1,5 @@
+[dsh-notify-say] config: voice=true mode=fixed name=zundamon-normal vol=100
+[dsh-notify-say] active (complete=true error=true blocked=true aborted=false approval=true question=true voice=true/fixed debounce=60s idleGate=true idleGateTimeout=600s)
+[llm-approver] {"time":"2026-11-08T07:39:01.840Z","stage":"mount","outcome":"loaded","version":"0.6.0"}
+[llm-approver] {"time":"2026-11-08T07:39:01.843Z","stage":"routes","outcome":"deferred","reason":"waiting for webServer service"}
+dsh web: http://127.0.0.1:3199/?token=KnJMcXBK1grMlInTm_5vvxE8NbHdCbjhCsYSWAlpnj8
