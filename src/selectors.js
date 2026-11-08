@@ -97,3 +97,53 @@ ${nav} > span button[class*="panelRow"]:hover::after {
 }
 `;
 }
+
+/**
+ * 层级缩进兼容层。
+ *
+ * 官方用行上的 `padding-inline-start: ... + var(--dsh-workspace-indent)` 表达层级。
+ * 但皮肤插件（如 @smalltailqwq/dsh-client-ui-skin-maid-atelier）用 `padding` 简写
+ * 重写了整条行规则，把 padding-inline-start 一起覆盖掉，缩进变量就失效了：
+ * 父行与子行的文字左边界完全重合，三层结构退化成看不见的平铺列表。
+ *
+ * 这里不去跟皮肤抢 `padding`（简写的特异性更高，且各行 padding 基准值由皮肤决定，
+ * 硬写基准值会把皮肤自己的左留白改掉），改成叠加 `margin-inline-start`：
+ * 它与 padding 互不干扰、不依赖基准值，变量为 0 时是 no-op；同时把宽度扣掉缩进量，
+ * 避免右边缘被侧边栏的 overflow:hidden 裁掉。
+ *
+ * 只应在探测确认「缩进被吃掉」时生效（调用方把标记打到 <html> 上），
+ * 否则官方环境下会变成双倍缩进。
+ *
+ * @param {string} flagAttr 打标记用的属性名，如 data-dsh-left-sidebar-indent
+ * @returns {string}
+ */
+export function indentFallbackCss(flagAttr) {
+  return `
+/* 行 padding 被第三方样式覆盖时，用 margin 把层级缩进补回来 */
+html[${flagAttr}] ${SEL.sidebarRoot} [data-row-key] {
+  margin-inline-start: var(--dsh-workspace-indent, 0px);
+  width: calc(100% - var(--dsh-workspace-indent, 0px));
+}
+
+/* 缩进量只有 12px，单靠横向位移在窄侧边栏里仍不够醒目，
+   再给嵌套分组画一条竖引导线：子的列对齐父的列，一眼看出归属。
+   用 currentColor + 低透明度，深浅主题都不用另配颜色。 */
+html[${flagAttr}] ${SEL.sidebarRoot} div[class*="groupSection"] div[class*="groupSection"] {
+  position: relative;
+}
+
+html[${flagAttr}] ${SEL.sidebarRoot} div[class*="groupSection"] div[class*="groupSection"]::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 3;
+}
+`;
+}

@@ -79,6 +79,7 @@ dsh plugin --profile web add dsh-left-sidebar
 ## 降级与恢复
 
 - **样式失效**：如果 DSH 改了面板列表的 class 前缀，5 列网格会静默不生效（`console.warn` 一次），侧边栏回退到官方外观。此时改 `src/selectors.js` 里的 `SEL` 常量表即可，该文件是全部选择器的唯一来源。
+- **层级缩进**：官方用行上的 `padding-inline-start: ... + var(--dsh-workspace-indent)` 表达层级。某些皮肤插件（例如 `@smalltailqwq/dsh-client-ui-skin-maid-atelier`）用 `padding` 简写重写了整条行规则，把它一起覆盖掉，父行和子行的文字左边界就会完全重合，三层看起来像平铺列表。插件会检测这种情况（比较同类型行在 `indent=0` 与 `indent>0` 时的 `padding-inline-start`），确认丢失后才给 `<html>` 打上 `data-dsh-left-sidebar-indent`，用 `margin-inline-start` 把缩进补回来，并给嵌套分组画一条竖引导线。没有皮肤冲突的环境不会触发，也就不会出现双倍缩进。检测在默认全折叠时看不到子行，会持续观察 DOM，等用户展开后再判定。
 - **恢复默认展开**：删掉 `localStorage` 里的 `dsh-left-sidebar.seeded` 键再刷新，插件会重新播种一次折叠状态。或者在侧边栏里手动展开想要的项目，插件不会覆盖。
 - **回到官方视图**：View options 里把 Group by 改回 `WorkSpace` 即可，插件只在首次播种时设置一次 `groupBy`，之后不强制。
 

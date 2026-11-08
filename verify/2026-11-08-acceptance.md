@@ -71,6 +71,41 @@
 
 复测（重新 build 后 reload，等 4 秒让四档探针跑完）：控制台 **只剩 meow-memory 自身的 `settings.section` 报错与 Canvas2D 性能提示，本插件零告警**；展开后 `display:"grid"`、5 列、`navH:72`、8 格。单测 25 pass / 0 fail，`client.js` 8431 B / SHA256 前 16 位 `2741067D84BC75CC`。
 
+## 层级缩进兼容层（皮肤冲突，2026-11-08 追加）
+
+用户反馈：三层数据成立，但**看不出上下级**——父行与子行的文字左边界完全重合。
+
+定量实测（3179 实例，逐行 `getComputedStyle`）：
+
+| 行 | `--dsh-workspace-indent` | `padding-inline-start` | 文字 `left` |
+|---|---|---|---|
+| 顶层项目 `workspace:882654ae` | `0px` | `10px` | 45 |
+| 子层项目 `workspace:02037240` | `12px` | `10px`（应 22px） | 45 |
+| 顶层会话 `session:session-0688` | `0px` | `24px` | 38 |
+| 子层会话 `session:session-8762` | `12px` | `24px`（应 36px） | 38 |
+
+→ 缩进变量本身是对的（0 / 12px），但从未进入 `padding-inline-start`。
+
+根因：皮肤 `@smalltailqwq/dsh-client-ui-skin-maid-atelier` 的两条规则
+`body[data-dsh-maid-atelier] [data-maid-workspace-row]{ padding: ... 10px ... }` 与
+`[data-maid-session-row]{ padding: 0px 8px 0px 24px }`
+用 **`padding` 简写**覆盖了官方
+`.YDXeBa_projectRow, .YDXeBa_sessionRow { padding-inline-start: calc(var(--dsh-sidebar-row-padding) - var(--dsh-sidebar-paint-inset) + var(--dsh-workspace-indent,0px)) }`
+（`@deepseek-ai/dsh-client-ui-workspace/lib/client.js:1955`）。皮肤选择器是「属性 + 属性」，特异性高于单个类选择器，因此简写胜出。
+
+修法（`src/selectors.js` 的 `indentFallbackCss` + `src/client.js` 的探测）：
+- **不抢 `padding`**，改用 `margin-inline-start: var(--dsh-workspace-indent, 0px)`，并把 `width` 扣掉同样长度，避免右边缘被 `overflow:hidden` 裁掉。变量为 0 时是 no-op，所以不给皮肤写死基准留白。
+- 只在**探测确认丢失**时生效：`indentLostFrom(rows)` 按行类型比较 `indent=0` 与 `indent>0` 两类的 `padding-inline-start`，相同即判丢失；`watchIndent()` 用 `MutationObserver`（120ms 防抖 + 400ms 首判）持续观察，命中后给 `<html>` 打 `data-dsh-left-sidebar-indent`。默认全折叠时没有子行、判不出来，所以必须持续观察。官方无皮肤环境下不触发，不会双倍缩进。
+- 缩进只有 12px，单靠横向位移仍不够醒目，额外给嵌套分组画 2px 竖引导线（`background: currentColor; opacity: .35`，只作用于 `div[class*="groupSection"] div[class*="groupSection"]`，顶层分组不画）。
+
+复测（reload 后展开侧边栏，展开 `dsh` 与 `dsh_workdir`，共 17 行）：
+
+- `<html data-dsh-left-sidebar-indent="lost">`，样式表长度 3590（原 3024）；
+- 子层项目 `margin-inline-start:12px`、文字 `left 57`；顶层项目 `0px` / `left 45`；
+- 子层会话 `margin-inline-start:12px`、文字 `left 50`；顶层会话 `0px` / `left 38`；
+- 嵌套 `groupSection` 3 个，`::before` 计算值 `width:2px`、`background:rgb(248, 243, 232)`；
+- 5 列网格无回归：`display:"grid"`、`navH:72`；
+- 单测 **32 pass / 0 fail**（新增 `test/indent.test.js` 7 例），`client.js` 11628 B / SHA256 前 16 位 `AE361D18A0420138`。
 ## 复现方式
 
 ```powershell

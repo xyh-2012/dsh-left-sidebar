@@ -22,9 +22,12 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/client.js
 var client_exports = {};
 __export(client_exports, {
+  INDENT_FLAG_ATTR: () => INDENT_FLAG_ATTR,
   STYLE_TAG: () => STYLE_TAG,
   apply: () => apply,
   ensureStyles: () => ensureStyles,
+  indentIsLost: () => indentIsLost,
+  indentLostFrom: () => indentLostFrom,
   name: () => name,
   removeStyles: () => removeStyles
 });
@@ -117,6 +120,36 @@ ${nav} > span button[class*="panelRow"]:hover::after {
 }
 `;
 }
+function indentFallbackCss(flagAttr) {
+  return `
+/* \u884C padding \u88AB\u7B2C\u4E09\u65B9\u6837\u5F0F\u8986\u76D6\u65F6\uFF0C\u7528 margin \u628A\u5C42\u7EA7\u7F29\u8FDB\u8865\u56DE\u6765 */
+html[${flagAttr}] ${SEL.sidebarRoot} [data-row-key] {
+  margin-inline-start: var(--dsh-workspace-indent, 0px);
+  width: calc(100% - var(--dsh-workspace-indent, 0px));
+}
+
+/* \u7F29\u8FDB\u91CF\u53EA\u6709 12px\uFF0C\u5355\u9760\u6A2A\u5411\u4F4D\u79FB\u5728\u7A84\u4FA7\u8FB9\u680F\u91CC\u4ECD\u4E0D\u591F\u9192\u76EE\uFF0C
+   \u518D\u7ED9\u5D4C\u5957\u5206\u7EC4\u753B\u4E00\u6761\u7AD6\u5F15\u5BFC\u7EBF\uFF1A\u5B50\u7684\u5217\u5BF9\u9F50\u7236\u7684\u5217\uFF0C\u4E00\u773C\u770B\u51FA\u5F52\u5C5E\u3002
+   \u7528 currentColor + \u4F4E\u900F\u660E\u5EA6\uFF0C\u6DF1\u6D45\u4E3B\u9898\u90FD\u4E0D\u7528\u53E6\u914D\u989C\u8272\u3002 */
+html[${flagAttr}] ${SEL.sidebarRoot} div[class*="groupSection"] div[class*="groupSection"] {
+  position: relative;
+}
+
+html[${flagAttr}] ${SEL.sidebarRoot} div[class*="groupSection"] div[class*="groupSection"]::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 3;
+}
+`;
+}
 
 // src/seed.js
 var UNGROUPED_KEY = "";
@@ -175,16 +208,18 @@ function readGroupExpansion() {
 // src/client.js
 var name = "dsh-left-sidebar";
 var STYLE_TAG = "dsh-left-sidebar";
+var INDENT_FLAG_ATTR = "data-dsh-left-sidebar-indent";
 var warned = false;
 function ensureStyles() {
   if (document.querySelector(`style[data-dsh-left-sidebar="${STYLE_TAG}"]`)) return;
   const tag = document.createElement("style");
   tag.setAttribute("data-dsh-left-sidebar", STYLE_TAG);
-  tag.textContent = panelListCss(PANEL_COLUMNS);
+  tag.textContent = panelListCss(PANEL_COLUMNS) + indentFallbackCss(INDENT_FLAG_ATTR);
   document.head.appendChild(tag);
 }
 function removeStyles() {
   document.querySelector(`style[data-dsh-left-sidebar="${STYLE_TAG}"]`)?.remove();
+  document.documentElement.removeAttribute(INDENT_FLAG_ATTR);
 }
 var PROBE_DELAYS_MS = [0, 300, 1e3, 2500];
 function warnIfMissing() {
@@ -205,12 +240,62 @@ function warnIfMissing() {
   probe(0);
   return timers;
 }
+function indentLostFrom(rows) {
+  const bases = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    if (row.indent === 0 && !bases.has(row.kind)) bases.set(row.kind, row.padStart);
+  }
+  for (const row of rows) {
+    if (row.indent <= 0) continue;
+    const base = bases.get(row.kind);
+    if (base === void 0) continue;
+    if (Math.abs(row.padStart - base) < 1) return true;
+  }
+  return false;
+}
+function indentIsLost(root = document) {
+  const rows = [...root.querySelectorAll(`${SEL.sidebarRoot} [data-row-key]`)];
+  if (rows.length === 0) return false;
+  return indentLostFrom(
+    rows.map((row) => {
+      const style = getComputedStyle(row);
+      return {
+        kind: row.getAttribute("data-row-key").split(":")[0],
+        indent: parseFloat(style.getPropertyValue("--dsh-workspace-indent")) || 0,
+        padStart: parseFloat(style.paddingInlineStart) || 0
+      };
+    })
+  );
+}
+function watchIndent() {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return () => {
+  };
+  let queued = false;
+  const check = () => {
+    queued = false;
+    if (document.documentElement.hasAttribute(INDENT_FLAG_ATTR)) return;
+    if (indentIsLost()) document.documentElement.setAttribute(INDENT_FLAG_ATTR, "lost");
+  };
+  const observer = new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    globalThis.setTimeout(check, 120);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  const timer = globalThis.setTimeout(check, 400);
+  return () => {
+    observer.disconnect();
+    globalThis.clearTimeout(timer);
+  };
+}
 function apply(ctx) {
   ctx.effect(() => {
     ensureStyles();
     const timers = warnIfMissing();
+    const stopWatching = watchIndent();
     return () => {
       for (const id of timers) globalThis.clearTimeout(id);
+      stopWatching();
       removeStyles();
       warned = false;
     };
