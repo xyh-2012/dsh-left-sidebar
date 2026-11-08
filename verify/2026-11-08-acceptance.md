@@ -39,7 +39,7 @@
 - **`localStorage` 键名带版本号**（`dsh.workspace.view.v5`）。DSH 升到 v6 时读不到，播种会降级为「不写折叠」；需要同步改 `src/view.js` 的常量。
 - **第二层只认已注册工作区**：`owningParentFolder` 大小写敏感，跳过未注册的中间目录（深度被压缩，但不会塌成两层）。
 
-## 终态复跑（提交 `e813253` 之后，干净状态）
+## 终态复跑（提交 `1d6f5f7` 之后，干净状态）
 
 把 `localStorage["dsh.workspace.view.v5"]` 重置为 `{groupBy:"workspace",groupExpansion:{},orderBy:"updated",sessionOrderByAccount:{},archivedFilter:"default"}`、删掉 `dsh-left-sidebar.seeded`，然后 reload：
 
@@ -51,6 +51,25 @@
 - 首列格 `::after { left:"0px" }`、末列格 `::after { right:"0px" }` —— 气泡不出界。
 
 → V1/V2/V3/V5/V6 在最终代码上再次通过。拖拽排序测完后已把 `global.workspaceIds` 恢复成原始顺序（`dsh → 知识学习 → dida-task-local → default-workspace → dsh_workdir → plugins`）。
+
+## 修掉的误报（`src/client.js` + `src/selectors.js`）
+
+第一次干净复跑时控制台在**侧边栏收起态**（默认态）打下一条启动期告警：
+
+```
+[dsh-left-sidebar] 未找到侧边栏面板列表（可能仍处于收起态或 DSH 版本已变更）。
+```
+
+原因：探针用的是带折叠作用域的选择器 `SEL.navList`（含 `:not([class*="collapsed"])`），而侧边栏刷新后默认就是收起态，必然命中不了；同时插件 `apply` 又早于官方侧边栏挂载，同步探测本身就不可靠。
+
+修法两处：
+
+1. 新增不带折叠作用域的探针选择器 `SEL.navListAny = '[data-slot="sidebar"] nav[class*="panelList"]'`，只用于「侧边栏是否已挂载」判断，不参与任何样式规则。
+2. `warnIfMissing()` 改为按 `PROBE_DELAYS_MS = [0, 300, 1000, 2500]` 延迟重试，命中即停；四档全落空才 warn 一次。`ctx.effect` 清理时 `clearTimeout` 掉所有待触发的定时器。
+
+补 `test/probe.test.js` 5 例（覆盖首帧命中 / 第 2 次命中 / 末次命中 / 始终不命中 / 延迟表上限）。
+
+复测（重新 build 后 reload，等 4 秒让四档探针跑完）：控制台 **只剩 meow-memory 自身的 `settings.section` 报错与 Canvas2D 性能提示，本插件零告警**；展开后 `display:"grid"`、5 列、`navH:72`、8 格。单测 25 pass / 0 fail，`client.js` 8431 B / SHA256 前 16 位 `2741067D84BC75CC`。
 
 ## 复现方式
 

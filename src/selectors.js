@@ -6,6 +6,8 @@ export const PANEL_COLUMNS = 5;
 
 export const SEL = {
   sidebarRoot: '[data-slot="sidebar"]',
+  // 仅用于「侧边栏是否已挂载」的探测：不带折叠作用域，收起态也能命中。
+  navListAny: '[data-slot="sidebar"] nav[class*="panelList"]',
   navList:
     '[data-slot="sidebar"] div:has(> nav[class*="panelList"]):not([class*="collapsed"]) > nav[class*="panelList"]',
   panelRow: 'button[class*="panelRow"]',

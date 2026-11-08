@@ -34,6 +34,8 @@ module.exports = __toCommonJS(client_exports);
 var PANEL_COLUMNS = 5;
 var SEL = {
   sidebarRoot: '[data-slot="sidebar"]',
+  // 仅用于「侧边栏是否已挂载」的探测：不带折叠作用域，收起态也能命中。
+  navListAny: '[data-slot="sidebar"] nav[class*="panelList"]',
   navList: '[data-slot="sidebar"] div:has(> nav[class*="panelList"]):not([class*="collapsed"]) > nav[class*="panelList"]',
   panelRow: 'button[class*="panelRow"]',
   panelTitle: 'span[class*="panelTitle"]'
@@ -184,20 +186,31 @@ function ensureStyles() {
 function removeStyles() {
   document.querySelector(`style[data-dsh-left-sidebar="${STYLE_TAG}"]`)?.remove();
 }
+var PROBE_DELAYS_MS = [0, 300, 1e3, 2500];
 function warnIfMissing() {
-  if (warned) return;
-  if (typeof document === "undefined") return;
-  if (document.querySelector(SEL.navList)) return;
-  warned = true;
-  console.warn(
-    "[dsh-left-sidebar] \u672A\u627E\u5230\u4FA7\u8FB9\u680F\u9762\u677F\u5217\u8868\uFF08\u53EF\u80FD\u4ECD\u5904\u4E8E\u6536\u8D77\u6001\u6216 DSH \u7248\u672C\u5DF2\u53D8\u66F4\uFF09\u3002\u6837\u5F0F\u5DF2\u6CE8\u5165\uFF0C\u547D\u4E2D\u540E\u81EA\u52A8\u751F\u6548\u3002"
-  );
+  if (typeof document === "undefined") return [];
+  const timers = [];
+  const probe = (index) => {
+    if (warned) return;
+    if (document.querySelector(SEL.navListAny)) return;
+    if (index >= PROBE_DELAYS_MS.length) {
+      warned = true;
+      console.warn(
+        "[dsh-left-sidebar] \u672A\u627E\u5230\u4FA7\u8FB9\u680F\u9762\u677F\u5217\u8868\uFF08DSH \u7248\u672C\u53EF\u80FD\u5DF2\u53D8\u66F4\uFF09\u3002\u6837\u5F0F\u5DF2\u6CE8\u5165\uFF0C\u547D\u4E2D\u540E\u81EA\u52A8\u751F\u6548\u3002"
+      );
+      return;
+    }
+    timers.push(globalThis.setTimeout(() => probe(index + 1), PROBE_DELAYS_MS[index]));
+  };
+  probe(0);
+  return timers;
 }
 function apply(ctx) {
   ctx.effect(() => {
     ensureStyles();
-    warnIfMissing();
+    const timers = warnIfMissing();
     return () => {
+      for (const id of timers) globalThis.clearTimeout(id);
       removeStyles();
       warned = false;
     };

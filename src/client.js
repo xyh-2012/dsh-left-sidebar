@@ -28,22 +28,38 @@ export function removeStyles() {
   document.querySelector(`style[data-dsh-left-sidebar="${STYLE_TAG}"]`)?.remove();
 }
 
-/** 只在第一次命中失败时提示，避免每帧刷屏。 */
+/**
+ * 面板列表是官方侧边栏组件挂载后才有的，而插件 apply 早于它。
+ * 所以这里不能同步判断，要延后重试若干次；确实一直没有才 warn 一次。
+ */
+const PROBE_DELAYS_MS = [0, 300, 1000, 2500];
+
+/** @returns {number[]} 需要清理的定时器 */
 function warnIfMissing() {
-  if (warned) return;
-  if (typeof document === "undefined") return;
-  if (document.querySelector(SEL.navList)) return;
-  warned = true;
-  console.warn(
-    "[dsh-left-sidebar] 未找到侧边栏面板列表（可能仍处于收起态或 DSH 版本已变更）。样式已注入，命中后自动生效。",
-  );
+  if (typeof document === "undefined") return [];
+  const timers = [];
+  const probe = (index) => {
+    if (warned) return;
+    if (document.querySelector(SEL.navListAny)) return;
+    if (index >= PROBE_DELAYS_MS.length) {
+      warned = true;
+      console.warn(
+        "[dsh-left-sidebar] 未找到侧边栏面板列表（DSH 版本可能已变更）。样式已注入，命中后自动生效。",
+      );
+      return;
+    }
+    timers.push(globalThis.setTimeout(() => probe(index + 1), PROBE_DELAYS_MS[index]));
+  };
+  probe(0);
+  return timers;
 }
 
 export function apply(ctx) {
   ctx.effect(() => {
     ensureStyles();
-    warnIfMissing();
+    const timers = warnIfMissing();
     return () => {
+      for (const id of timers) globalThis.clearTimeout(id);
       removeStyles();
       warned = false;
     };
