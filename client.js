@@ -116,6 +116,60 @@ ${nav} > span button[class*="panelRow"]:hover::after {
 `;
 }
 
+// src/seed.js
+var UNGROUPED_KEY = "";
+function shouldSetGroupBy(current) {
+  return current !== "workspace-tree";
+}
+function seedGroupKeys(workspaceIds, groupExpansion) {
+  const keys = [...workspaceIds, UNGROUPED_KEY];
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!Object.hasOwn(groupExpansion, key)) out.push(key);
+  }
+  return out;
+}
+
+// src/view.js
+var SEEDED_KEY = "dsh-left-sidebar.seeded";
+var SKIP = { seeded: false, keys: [], groupBySet: false };
+function seedOnce(view, currentGroupBy, workspaceIds, groupExpansion, storage = globalThis.localStorage) {
+  if (typeof view?.setGroupExpanded !== "function") return SKIP;
+  if (storage?.getItem(SEEDED_KEY) === "1") return SKIP;
+  if (!Array.isArray(workspaceIds) || workspaceIds.length === 0) return SKIP;
+  const keys = seedGroupKeys(workspaceIds, groupExpansion ?? {});
+  let groupBySet = false;
+  if (typeof view.setGroupBy === "function" && shouldSetGroupBy(currentGroupBy)) {
+    view.setGroupBy("workspace-tree");
+    groupBySet = true;
+  }
+  for (const key of keys) view.setGroupExpanded(key, false);
+  storage?.setItem(SEEDED_KEY, "1");
+  return { seeded: true, keys, groupBySet };
+}
+var VIEW_STORAGE_KEY = "dsh.workspace.view.v5";
+function readPersisted() {
+  try {
+    const raw = globalThis.localStorage?.getItem(VIEW_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+function readGroupBy() {
+  const value = readPersisted().groupBy;
+  return typeof value === "string" ? value : "workspace";
+}
+function readGroupExpansion() {
+  const value = readPersisted().groupExpansion;
+  return value && typeof value === "object" ? value : {};
+}
+
 // src/client.js
 var name = "dsh-left-sidebar";
 var STYLE_TAG = "dsh-left-sidebar";
@@ -143,8 +197,41 @@ function apply(ctx) {
   ctx.effect(() => {
     ensureStyles();
     warnIfMissing();
-    return () => removeStyles();
+    return () => {
+      removeStyles();
+      warned = false;
+    };
   }, "dsh-left-sidebar: styles");
+  ctx.inject(["uiWorkspace", "workspaces"], (injected) => {
+    const view = injected.uiWorkspace?.view;
+    const list = injected.workspaces?.list;
+    if (typeof view?.setGroupExpanded !== "function" || typeof list?.subscribe !== "function") {
+      console.warn(
+        "[dsh-left-sidebar] uiWorkspace.view \u4E0D\u53EF\u5199\uFF0C\u4E09\u5C42\u4E0E\u9ED8\u8BA4\u6298\u53E0\u672A\u751F\u6548\uFF085 \u5217\u5E03\u5C40\u4E0D\u53D7\u5F71\u54CD\uFF09\u3002"
+      );
+      return;
+    }
+    let stop = false;
+    let unsubscribe = null;
+    const attempt = () => {
+      if (stop) return;
+      const snapshot = list.getSnapshot();
+      if (snapshot?.phase !== "ready") return;
+      const workspaceIds = snapshot.items.map((w) => w.workspaceId);
+      const result = seedOnce(view, readGroupBy(), workspaceIds, readGroupExpansion());
+      if (!result.seeded) return;
+      stop = true;
+      if (unsubscribe) unsubscribe();
+      unsubscribe = null;
+    };
+    attempt();
+    if (!stop) unsubscribe = list.subscribe(attempt);
+    return () => {
+      stop = true;
+      if (unsubscribe) unsubscribe();
+      unsubscribe = null;
+    };
+  }, "dsh-left-sidebar: seed");
 }
 
   return module.exports;

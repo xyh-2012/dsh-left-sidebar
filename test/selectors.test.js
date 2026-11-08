@@ -39,3 +39,33 @@ test("锚点选择器以 data-slot 为根，行/标题是相对选择器", () =>
   assert.doesNotMatch(SEL.panelRow, /data-slot=/);
   assert.doesNotMatch(SEL.panelTitle, /data-slot=/);
 });
+
+/** 抽出 CSS 里每一条前置选择器（先去注释，再按 } 切块、按 , 拆组）。 */
+function selectorsOf(css) {
+  return css
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("}")
+    .map((chunk) => chunk.split("{")[0].trim())
+    .filter(Boolean)
+    .flatMap((group) => group.split(",").map((s) => s.trim()))
+    .filter(Boolean);
+}
+
+test("每条 CSS 规则的前置选择器都限定在未折叠作用域内", () => {
+  const selectors = selectorsOf(panelListCss(5));
+  assert.ok(selectors.length >= 6, `规则条数过少: ${selectors.length}`);
+  for (const sel of selectors) {
+    assert.match(sel, /:not\(\[class\*="collapsed"\]\)/, `缺少折叠作用域: ${sel}`);
+  }
+});
+
+test("更多按钮（span 内）的悬停气泡也有对应规则", () => {
+  const css = panelListCss(5);
+  assert.match(css, /> span button\[class\*="panelRow"\]::after/);
+  assert.match(css, /> span:nth-child\(5n \+ 1\) button\[class\*="panelRow"\]::after/);
+  assert.match(css, /> span:nth-child\(5n\) button\[class\*="panelRow"\]::after/);
+});
+
+test("grid item 允许缩小以维持 5 列", () => {
+  assert.match(panelListCss(5), />\s*\*\s*\{[^}]*min-width:\s*0/);
+});
